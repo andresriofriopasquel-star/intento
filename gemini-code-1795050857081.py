@@ -1,0 +1,2299 @@
+import zipfile
+
+base_dir = "calendario-adviento-andres-any"
+
+index_html = """<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>Calendario de Adviento — Andrés &amp; Any</title>
+  <meta name="description" content="25 días, 25 pequeños detalles para recordarte lo especial que eres." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Dancing+Script:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Lienzo de nieve invernal optimizado (detrás de todo el contenido) -->
+  <canvas id="snow-canvas" aria-hidden="true"></canvas>
+  <div class="sparkles-layer" id="sparkles-layer" aria-hidden="true"></div>
+
+  <!-- Controles superiores discretos -->
+  <div class="top-controls" role="region" aria-label="Controles de ambiente">
+    <button id="music-toggle-btn" class="pill-btn hidden" type="button" aria-label="Activar o pausar música de fondo" title="Música navideña">
+      <span class="music-icon" aria-hidden="true">♪</span>
+      <span id="music-label">Música: Off</span>
+    </button>
+    <button id="replay-intro-btn" class="pill-btn hidden" type="button" aria-label="Volver a ver el sobre inicial" title="Ver sobre inicial">
+      <span aria-hidden="true">✉</span>
+      <span>Sobre</span>
+    </button>
+  </div>
+
+  <!-- Audio de fondo opcional -->
+  <audio id="bg-audio" loop preload="none"></audio>
+
+  <!-- =========================================================
+       PANTALLA 1: BIENVENIDA CON SOBRE ANIMADO
+  ========================================================= -->
+  <main id="welcome-screen" class="screen screen-welcome active" aria-label="Bienvenida">
+    <div class="welcome-wrapper">
+      <p class="eyebrow-tag" id="welcome-eyebrow">UN REGALO DE ANDRÉS</p>
+      <h1 class="welcome-title" id="welcome-to">Para Any</h1>
+      <p class="welcome-subtitle" id="welcome-subtitle">Un poquito de magia para ti.</p>
+
+      <!-- Sobre de papel artesanal -->
+      <div class="envelope-stage" id="envelope-stage">
+        <div class="envelope" id="envelope" role="button" tabindex="0" aria-label="Abrir sobre de regalo">
+          <div class="envelope-back"></div>
+
+          <!-- Carta interior que emerge -->
+          <article class="letter-card" id="letter-card" aria-hidden="true">
+            <div class="letter-inner">
+              <div class="letter-ornament" aria-hidden="true">❄ ✦ ❄</div>
+              <div class="letter-body" id="letter-message"></div>
+              <button id="start-calendar-btn" class="btn-primary btn-start" type="button">
+                COMENZAR!
+              </button>
+            </div>
+          </article>
+
+          <div class="envelope-pocket"></div>
+          <div class="envelope-flap" id="envelope-flap"></div>
+
+          <!-- Sello de corazón / lacre celeste-plateado -->
+          <div class="wax-seal" id="wax-seal" aria-hidden="true">
+            <svg viewBox="0 0 32 32" width="24" height="24" fill="currentColor">
+              <path d="M16 28.5C16 28.5 3.5 20.1 3.5 11.4C3.5 7.4 6.6 4.5 10.3 4.5C12.7 4.5 14.8 5.8 16 7.7C17.2 5.8 19.3 4.5 21.7 4.5C25.4 4.5 28.5 7.4 28.5 11.4C28.5 20.1 16 28.5 16 28.5Z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <p class="welcome-dedication" id="welcome-dedication">Preparado con mucho cariño, te amo.</p>
+
+      <button id="open-gift-btn" class="btn-primary" type="button">
+        ABRIR MI REGALO
+      </button>
+    </div>
+  </main>
+
+  <!-- =========================================================
+       PANTALLA 2: CALENDARIO DE ADVIENTO (25 CASILLAS)
+  ========================================================= -->
+  <section id="calendar-screen" class="screen screen-calendar hidden" aria-label="Calendario de Adviento">
+    <header class="calendar-header">
+      <!-- Ilustración SVG minimalista invernal -->
+      <div class="winter-illustration" aria-hidden="true">
+        <svg viewBox="0 0 120 44" width="120" height="44" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M60 4L67 16H62L69 27H63L71 38H49L57 27H51L58 16H53L60 4Z" stroke="#405C70" stroke-width="1.4" stroke-linejoin="round" fill="#FFFFFF" fill-opacity="0.7"/>
+          <circle cx="60" cy="2.5" r="1.5" fill="#789CB2"/>
+          <path d="M24 22H32M28 18V26M25.2 19.2L30.8 24.8M30.8 19.2L25.2 24.8" stroke="#789CB2" stroke-width="1.2" stroke-linecap="round"/>
+          <path d="M88 22H96M92 18V26M89.2 19.2L94.8 24.8M94.8 19.2L89.2 24.8" stroke="#789CB2" stroke-width="1.2" stroke-linecap="round"/>
+          <circle cx="14" cy="12" r="1.3" fill="#789CB2" opacity="0.7"/>
+          <circle cx="106" cy="13" r="1.3" fill="#789CB2" opacity="0.7"/>
+          <circle cx="40" cy="10" r="1" fill="#405C70" opacity="0.5"/>
+          <circle cx="80" cy="10" r="1" fill="#405C70" opacity="0.5"/>
+        </svg>
+      </div>
+
+      <h1 class="calendar-title" id="cal-title">Feliz Navidad, mi Amor</h1>
+      <p class="calendar-subtitle" id="cal-subtitle">25 días, 25 sorpresas para ti.</p>
+      <p class="calendar-caption" id="cal-caption">Cada día tiene algo preparado especialmente para ti.</p>
+
+      <!-- Barra de progreso -->
+      <div class="progress-box" aria-live="polite">
+        <div class="progress-text-row">
+          <span id="progress-label">Has descubierto 0 de 25 sorpresas.</span>
+          <span id="progress-percent">0%</span>
+        </div>
+        <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="25" aria-valuenow="0" id="progress-bar-track">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Cuadrícula de 25 puertas de Adviento -->
+    <div class="doors-grid" id="doors-grid" role="list"></div>
+
+    <footer class="calendar-footer">
+      <p id="footer-note">Hecho con amor por Andrés para Any · Hora de Ecuador</p>
+    </footer>
+  </section>
+
+  <!-- =========================================================
+       TOAST / MENSAJE FLOTANTE PARA DÍAS BLOQUEADOS O CELEBRACIÓN
+  ========================================================= -->
+  <div id="toast-banner" class="toast-banner" role="status" aria-live="assertive"></div>
+
+  <!-- =========================================================
+       MODAL DE SORPRESA DEL DÍA
+  ========================================================= -->
+  <div id="surprise-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-day-title">
+    <div class="modal-sparkles" id="modal-sparkles" aria-hidden="true"></div>
+    <article class="paper-modal" id="paper-modal">
+      <div class="modal-top-bar">
+        <span class="modal-day-badge" id="modal-day-badge">DÍA 01 DE DICIEMBRE</span>
+        <button id="close-modal-btn" class="close-btn" type="button" aria-label="Cerrar sorpresa y volver al calendario">
+          ✕
+        </button>
+      </div>
+
+      <div class="modal-scroll-area" id="modal-content-area">
+        <!-- Contenido dinámico inyectado por script.js según el tipo de sorpresa -->
+      </div>
+
+      <div class="modal-bottom-bar">
+        <button id="back-to-cal-btn" class="btn-secondary" type="button">
+          ← Volver al calendario
+        </button>
+      </div>
+    </article>
+  </div>
+
+  <!-- Scripts: primero la configuración editable, luego la lógica -->
+  <script src="advent-config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
+"""
+
+style_css = """/* ==========================================================================
+   CALENDARIO DE ADVIENTO DIGITAL — ANDRÉS & ANY
+   Estética: Invernal, Celestes Pastel, Nieve, Minimalismo Artesanal
+   Metodología: Mobile First
+   ========================================================================== */
+
+:root {
+  --celeste-pastel: #B9DFF2;
+  --celeste-claro: #DDF1FA;
+  --azul-hielo: #EAF7FC;
+  --blanco-nieve: #FFFFFF;
+  --azul-grisaceo: #789CB2;
+  --azul-oscuro: #405C70;
+  --azul-profundo: #2B4252;
+  --plateado-sutil: #D4E1E8;
+  --sombra-suave: rgba(64, 92, 112, 0.14);
+  --sombra-fuerte: rgba(43, 66, 82, 0.24);
+
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
+  --font-script: 'Dancing Script', cursive;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --radius-card: 18px;
+  --radius-door: 16px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  max-width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-family: var(--font-sans);
+  color: var(--azul-oscuro);
+  background: linear-gradient(170deg, var(--azul-hielo) 0%, var(--celeste-claro) 52%, var(--celeste-pastel) 100%);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Lienzo de nieve detrás de todo */
+#snow-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.sparkles-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.sparkle-dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #FFFFFF 0%, rgba(255,255,255,0) 70%);
+  animation: twinkle var(--dur, 4s) ease-in-out infinite;
+  opacity: 0;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.6); }
+  50% { opacity: 0.85; transform: scale(1.3); }
+}
+
+/* Controles superiores */
+.top-controls {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 40;
+  display: flex;
+  gap: 8px;
+}
+
+.pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--azul-oscuro);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 14px var(--sombra-suave);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.pill-btn:hover {
+  background: var(--blanco-nieve);
+  transform: translateY(-1px);
+}
+
+.pill-btn:active {
+  transform: scale(0.96);
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Pantallas principales */
+.screen {
+  position: relative;
+  z-index: 10;
+  min-height: 100vh;
+  width: 100%;
+  transition: opacity 0.65s ease, transform 0.65s ease;
+}
+
+.screen.fade-out {
+  opacity: 0;
+  transform: translateY(-14px);
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   PANTALLA 1: BIENVENIDA CON SOBRE
+   ========================================================================== */
+.screen-welcome {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 18px;
+  text-align: center;
+}
+
+.welcome-wrapper {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.eyebrow-tag {
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--azul-grisaceo);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.welcome-title {
+  font-family: var(--font-serif);
+  font-size: clamp(2.4rem, 7vw, 3.3rem);
+  font-weight: 700;
+  color: var(--azul-oscuro);
+  line-height: 1.08;
+  margin-bottom: 6px;
+}
+
+.welcome-subtitle {
+  font-family: var(--font-script);
+  font-size: clamp(1.5rem, 5vw, 1.95rem);
+  color: var(--azul-grisaceo);
+  margin-bottom: 26px;
+}
+
+/* Escenario del sobre */
+.envelope-stage {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  height: 215px;
+  margin: 0 auto 24px;
+  perspective: 1000px;
+  transition: height 0.6s ease, max-width 0.6s ease;
+}
+
+.envelope-stage.opened {
+  max-width: 420px;
+  height: 390px;
+}
+
+.envelope {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  animation: gentleFloat 4.2s ease-in-out infinite;
+  outline: none;
+}
+
+.envelope.is-open {
+  animation: none;
+  cursor: default;
+}
+
+@keyframes gentleFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-7px); }
+}
+
+.envelope-back {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(145deg, #FFFFFF 0%, #EAF7FC 100%);
+  border-radius: 14px;
+  border: 1.5px solid var(--plateado-sutil);
+  box-shadow: 0 16px 36px var(--sombra-suave);
+  transition: opacity 0.5s ease;
+}
+
+/* Bolsillo frontal del sobre */
+.envelope-pocket {
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  z-index: 4;
+  pointer-events: none;
+  transition: opacity 0.45s ease;
+}
+
+.envelope-pocket::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #F7FCFF 50%, transparent 50%),
+              linear-gradient(225deg, #EFF8FC 50%, transparent 50%);
+  clip-path: polygon(0 0, 50% 56%, 100% 0, 100% 100%, 0 100%);
+  border-top: 1px solid rgba(120, 156, 178, 0.25);
+}
+
+.envelope-pocket::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(221, 241, 250, 0.35) 0%, #FFFFFF 100%);
+  clip-path: polygon(0 100%, 50% 48%, 100% 100%);
+  border-top: 1px solid rgba(120, 156, 178, 0.2);
+}
+
+/* Solapa superior del sobre */
+.envelope-flap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 58%;
+  background: linear-gradient(180deg, #FFFFFF 0%, #DDF1FA 100%);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+  transform-origin: top center;
+  transition: transform 0.75s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.45s ease;
+  z-index: 5;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 6px rgba(64, 92, 112, 0.12));
+}
+
+.envelope.is-open .envelope-flap {
+  transform: rotateX(180deg);
+  z-index: 1;
+}
+
+/* Sello de corazón */
+.wax-seal {
+  position: absolute;
+  top: 52%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #96BDD4, #405C70);
+  color: var(--blanco-nieve);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 6;
+  box-shadow: 0 6px 14px rgba(64, 92, 112, 0.28), inset 0 1px 2px rgba(255,255,255,0.6);
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  transition: transform 0.4s ease, opacity 0.35s ease;
+  pointer-events: none;
+}
+
+.envelope.is-open .wax-seal {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.5);
+}
+
+/* Carta interior que crece */
+.letter-card {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: 10px;
+  height: 84%;
+  background: var(--blanco-nieve);
+  border-radius: 14px;
+  border: 1px solid var(--plateado-sutil);
+  box-shadow: 0 10px 28px var(--sombra-suave);
+  z-index: 2;
+  opacity: 0;
+  transform: translateY(12px) scale(0.92);
+  transition: transform 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.25s,
+              opacity 0.5s ease 0.25s,
+              inset 0.6s ease 0.25s;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.envelope.is-open .letter-card {
+  inset: 0;
+  height: 100%;
+  z-index: 10;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  box-shadow: 0 20px 44px var(--sombra-fuerte);
+}
+
+.envelope.is-open .envelope-pocket,
+.envelope.is-open .envelope-back,
+.envelope.is-open .envelope-flap {
+  opacity: 0;
+}
+
+.letter-inner {
+  padding: 22px 20px;
+  overflow-y: auto;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background-image: radial-gradient(var(--celeste-claro) 0.75px, transparent 0.75px);
+  background-size: 18px 18px;
+}
+
+.letter-ornament {
+  color: var(--azul-grisaceo);
+  font-size: 0.9rem;
+  letter-spacing: 0.35em;
+}
+
+.letter-body {
+  font-family: var(--font-sans);
+  font-size: 0.93rem;
+  line-height: 1.62;
+  color: var(--azul-oscuro);
+  white-space: pre-line;
+  text-align: center;
+}
+
+.welcome-dedication {
+  font-size: 0.9rem;
+  color: var(--azul-oscuro);
+  opacity: 0.88;
+  margin-bottom: 18px;
+  transition: opacity 0.35s ease;
+}
+
+/* Botones principales */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 30px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, var(--azul-oscuro) 0%, var(--azul-profundo) 100%);
+  color: var(--blanco-nieve);
+  font-family: var(--font-sans);
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(64, 92, 112, 0.28);
+  transition: transform 0.22s ease, box-shadow 0.22s ease, opacity 0.3s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(64, 92, 112, 0.34);
+}
+
+.btn-primary:active {
+  transform: scale(0.95);
+}
+
+.btn-start {
+  padding: 12px 28px;
+  font-size: 0.84rem;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--celeste-pastel);
+  background: var(--azul-hielo);
+  color: var(--azul-oscuro);
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.18s ease;
+}
+
+.btn-secondary:hover {
+  background: var(--celeste-claro);
+}
+
+.btn-secondary:active {
+  transform: scale(0.96);
+}
+
+/* ==========================================================================
+   PANTALLA 2: CALENDARIO PRINCIPAL
+   ========================================================================== */
+.screen-calendar {
+  padding: 54px 14px 48px;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.calendar-header {
+  text-align: center;
+  margin-bottom: 26px;
+  padding: 0 8px;
+}
+
+.winter-illustration {
+  margin: 0 auto 6px;
+  display: flex;
+  justify-content: center;
+}
+
+.calendar-title {
+  font-family: var(--font-serif);
+  font-size: clamp(2.1rem, 6.5vw, 3.2rem);
+  font-weight: 700;
+  color: var(--azul-oscuro);
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+
+.calendar-subtitle {
+  font-family: var(--font-script);
+  font-size: clamp(1.45rem, 4.5vw, 1.9rem);
+  color: var(--azul-grisaceo);
+  margin-bottom: 4px;
+}
+
+.calendar-caption {
+  font-size: 0.9rem;
+  color: var(--azul-oscuro);
+  opacity: 0.85;
+  margin-bottom: 18px;
+}
+
+/* Barra de progreso */
+.progress-box {
+  max-width: 420px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  padding: 12px 16px;
+  box-shadow: 0 6px 20px var(--sombra-suave);
+}
+
+.progress-text-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--azul-oscuro);
+  margin-bottom: 8px;
+}
+
+.progress-track {
+  width: 100%;
+  height: 8px;
+  background: var(--celeste-claro);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--azul-grisaceo), var(--azul-oscuro));
+  border-radius: 999px;
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ==========================================================================
+   CUADRÍCULA DE 25 CASILLAS (PUERTAS ARTESANALES)
+   - Móviles: 5 columnas x 5 filas (4 columnas en pantallas ultra estrechas <350px)
+   - Tablets: 5 columnas x 5 filas
+   - Escritorio: 6 columnas (con Día 25 destacado)
+   ========================================================================== */
+.doors-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 9px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media (max-width: 345px) {
+  .doors-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+}
+
+@media (min-width: 640px) {
+  .doors-grid {
+    gap: 16px;
+    max-width: 760px;
+  }
+}
+
+@media (min-width: 960px) {
+  .doors-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 18px;
+    max-width: 920px;
+  }
+}
+
+/* Estilo individual de cada puerta de Adviento */
+.door-card {
+  position: relative;
+  aspect-ratio: 1 / 1.08;
+  border-radius: var(--radius-door);
+  border: 1.5px dashed rgba(120, 156, 178, 0.45);
+  background: var(--blanco-nieve);
+  box-shadow: 0 6px 16px var(--sombra-suave);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.28s ease,
+              background 0.3s ease,
+              border-color 0.3s ease;
+  overflow: hidden;
+}
+
+/* Variaciones sutiles artesanales entre casillas */
+.door-card.variant-0 {
+  background: linear-gradient(155deg, #FFFFFF 0%, #EAF7FC 100%);
+  border-style: dashed;
+}
+
+.door-card.variant-1 {
+  background: linear-gradient(155deg, #DDF1FA 0%, #FFFFFF 100%);
+  border-style: solid;
+  border-color: rgba(185, 223, 242, 0.9);
+}
+
+.door-card.variant-2 {
+  background: linear-gradient(155deg, #EAF7FC 0%, #CFE9F7 100%);
+  border-style: dotted;
+  border-width: 2px;
+}
+
+.door-card.variant-3 {
+  background: #FFFFFF;
+  box-shadow: inset 0 0 0 3px var(--azul-hielo), 0 6px 16px var(--sombra-suave);
+  border-style: solid;
+  border-color: var(--celeste-pastel);
+}
+
+/* Pestaña visual de puerta física */
+.door-card::before {
+  content: "";
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 22%;
+  border-radius: 99px;
+  background: rgba(120, 156, 178, 0.32);
+}
+
+.door-number {
+  font-family: var(--font-serif);
+  font-size: clamp(1.35rem, 4.4vw, 2.15rem);
+  font-weight: 700;
+  color: var(--azul-oscuro);
+  line-height: 1;
+  z-index: 2;
+}
+
+.door-motif {
+  font-size: clamp(0.7rem, 2vw, 0.92rem);
+  color: var(--azul-grisaceo);
+  margin-top: 4px;
+  line-height: 1;
+  z-index: 2;
+}
+
+/* Estado: DESBLOQUEADA Y LISTA PARA ABRIR */
+.door-card.unlocked:hover {
+  transform: translateY(-4px) scale(1.03);
+  box-shadow: 0 12px 24px rgba(64, 92, 112, 0.2);
+}
+
+.door-card.unlocked:active {
+  transform: scale(0.94);
+}
+
+/* Brillo suave en el día actual disponible sin abrir */
+.door-card.is-today:not(.opened) {
+  border: 2px solid var(--azul-oscuro);
+  animation: pulseGlow 2.8s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 6px 18px rgba(64, 92, 112, 0.18); }
+  50% { box-shadow: 0 0 0 4px rgba(185, 223, 242, 0.65), 0 10px 24px rgba(64, 92, 112, 0.26); }
+}
+
+/* Animación de apertura al hacer clic */
+.door-card.opening {
+  animation: doorSwingOpen 0.55s cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
+}
+
+@keyframes doorSwingOpen {
+  0% { transform: scale(1) perspective(600px) rotateY(0deg); }
+  45% { transform: scale(1.1) perspective(600px) rotateY(-24deg); }
+  100% { transform: scale(1.04) perspective(600px) rotateY(0deg); }
+}
+
+/* Estado: BLOQUEADA (DÍAS FUTUROS) */
+.door-card.locked {
+  opacity: 0.68;
+  background: rgba(234, 247, 252, 0.65);
+  border-color: rgba(120, 156, 178, 0.35);
+  cursor: not-allowed;
+}
+
+.door-card.locked .door-number {
+  color: var(--azul-grisaceo);
+}
+
+.door-lock-badge {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  font-size: 0.68rem;
+  color: var(--azul-grisaceo);
+  opacity: 0.85;
+}
+
+.door-card.shake {
+  animation: gentleShake 0.4s ease;
+}
+
+@keyframes gentleShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-3px); }
+}
+
+/* Estado: YA ABIERTA */
+.door-card.opened {
+  background: linear-gradient(145deg, #FFFFFF 0%, #DDF1FA 100%);
+  border: 1.5px solid var(--azul-grisaceo);
+}
+
+.door-opened-badge {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--azul-oscuro);
+  color: var(--blanco-nieve);
+  font-size: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(64, 92, 112, 0.25);
+}
+
+/* ==========================================================================
+   TRATAMIENTO ESPECIAL DÍA 25 (SORPRESA FINAL)
+   ========================================================================== */
+.door-card.door-final {
+  grid-column: span 2;
+  aspect-ratio: auto;
+  min-height: 82px;
+  background: linear-gradient(135deg, #FFFFFF 0%, #DDF1FA 50%, #B9DFF2 100%);
+  border: 2px solid var(--azul-oscuro);
+  box-shadow: 0 10px 26px rgba(64, 92, 112, 0.22);
+}
+
+@media (min-width: 960px) {
+  .door-card.door-final {
+    grid-column: span 2;
+  }
+}
+
+.door-final-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 6px 12px;
+}
+
+.door-final .door-number {
+  font-size: clamp(1.7rem, 5vw, 2.5rem);
+}
+
+.door-final-tag {
+  font-family: var(--font-script);
+  font-size: clamp(1.1rem, 3.2vw, 1.45rem);
+  color: var(--azul-oscuro);
+  line-height: 1.1;
+}
+
+.calendar-footer {
+  text-align: center;
+  margin-top: 32px;
+  font-size: 0.8rem;
+  color: var(--azul-oscuro);
+  opacity: 0.78;
+}
+
+/* ==========================================================================
+   TOAST / MENSAJE FLOTANTE
+   ========================================================================== */
+.toast-banner {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%) translateY(24px);
+  width: calc(100% - 32px);
+  max-width: 410px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1.5px solid var(--celeste-pastel);
+  border-radius: 16px;
+  padding: 13px 18px;
+  box-shadow: 0 14px 32px var(--sombra-fuerte);
+  color: var(--azul-oscuro);
+  font-size: 0.88rem;
+  font-weight: 500;
+  text-align: center;
+  z-index: 60;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.toast-banner.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ==========================================================================
+   MODAL DE SORPRESA (TARJETA DE PAPEL REAL)
+   ========================================================================== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(43, 66, 82, 0.42);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.modal-backdrop.open {
+  opacity: 1;
+}
+
+.modal-sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.paper-modal {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  max-height: 88vh;
+  background: var(--blanco-nieve);
+  background-image: radial-gradient(rgba(185, 223, 242, 0.32) 0.8px, transparent 0.8px);
+  background-size: 20px 20px;
+  border-radius: 22px;
+  border: 1.5px solid var(--plateado-sutil);
+  box-shadow: 0 24px 60px rgba(27, 45, 58, 0.32);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: scale(0.86) translateY(18px);
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.modal-backdrop.open .paper-modal {
+  transform: scale(1) translateY(0);
+}
+
+.modal-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: rgba(234, 247, 252, 0.85);
+  border-bottom: 1px solid var(--celeste-claro);
+}
+
+.modal-day-badge {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--azul-grisaceo);
+}
+
+.close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--celeste-pastel);
+  background: var(--blanco-nieve);
+  color: var(--azul-oscuro);
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.close-btn:hover {
+  background: var(--celeste-claro);
+  transform: rotate(90deg);
+}
+
+.modal-scroll-area {
+  padding: 24px 22px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+}
+
+.modal-bottom-bar {
+  padding: 12px 18px;
+  background: rgba(234, 247, 252, 0.65);
+  border-top: 1px solid var(--celeste-claro);
+  display: flex;
+  justify-content: center;
+}
+
+/* Elementos dentro de la sorpresa */
+.surprise-title {
+  font-family: var(--font-serif);
+  font-size: clamp(1.65rem, 5vw, 2.15rem);
+  font-weight: 700;
+  color: var(--azul-oscuro);
+  line-height: 1.2;
+}
+
+.surprise-message {
+  font-size: 0.98rem;
+  line-height: 1.72;
+  color: var(--azul-oscuro);
+  white-space: pre-line;
+  max-width: 440px;
+}
+
+.surprise-signature {
+  font-family: var(--font-script);
+  font-size: 1.55rem;
+  color: var(--azul-grisaceo);
+  margin-top: 4px;
+}
+
+/* Polaroid */
+.polaroid-frame {
+  background: var(--blanco-nieve);
+  padding: 12px 12px 18px;
+  border-radius: 6px;
+  border: 1px solid var(--plateado-sutil);
+  box-shadow: 0 12px 28px rgba(64, 92, 112, 0.18);
+  transform: rotate(-1.5deg);
+  max-width: 310px;
+  width: 100%;
+  margin: 4px auto;
+  opacity: 0;
+  animation: photoReveal 0.65s ease 0.15s forwards;
+}
+
+@keyframes photoReveal {
+  from { opacity: 0; transform: rotate(-3deg) scale(0.94); }
+  to { opacity: 1; transform: rotate(-1.5deg) scale(1); }
+}
+
+.polaroid-frame img {
+  width: 100%;
+  height: auto;
+  max-height: 320px;
+  object-fit: cover;
+  border-radius: 3px;
+  display: block;
+}
+
+.polaroid-caption {
+  font-family: var(--font-script);
+  font-size: 1.3rem;
+  color: var(--azul-oscuro);
+  margin-top: 10px;
+  line-height: 1.25;
+}
+
+/* Lista numerada especial */
+.special-list {
+  width: 100%;
+  max-width: 420px;
+  text-align: left;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.special-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--azul-hielo);
+  border: 1px solid var(--celeste-claro);
+  padding: 11px 14px;
+  border-radius: 12px;
+  font-size: 0.93rem;
+  line-height: 1.5;
+}
+
+.list-num {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--azul-oscuro);
+  color: var(--blanco-nieve);
+  font-size: 0.76rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+/* Tarjeta de invitación a cita */
+.invitation-ticket {
+  width: 100%;
+  max-width: 420px;
+  background: linear-gradient(145deg, var(--azul-hielo) 0%, var(--blanco-nieve) 100%);
+  border: 2px dashed var(--azul-grisaceo);
+  border-radius: 16px;
+  padding: 20px 18px;
+  position: relative;
+}
+
+.invitation-tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--blanco-nieve);
+  background: var(--azul-grisaceo);
+  padding: 4px 12px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+}
+
+.invitation-details {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--celeste-pastel);
+  font-size: 0.88rem;
+  color: var(--azul-oscuro);
+  font-weight: 600;
+}
+
+/* Reproductor de video y audio */
+.media-box {
+  width: 100%;
+  max-width: 430px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1.5px solid var(--celeste-pastel);
+  background: var(--azul-hielo);
+  padding: 10px;
+}
+
+.media-box video {
+  width: 100%;
+  max-height: 300px;
+  border-radius: 10px;
+  display: block;
+  background: #1d2d38;
+}
+
+.media-box audio {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.external-song-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--azul-oscuro);
+  color: var(--blanco-nieve);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Carta final Día 25 */
+.final-letter-box {
+  text-align: left;
+  background: rgba(234, 247, 252, 0.55);
+  border: 1px solid var(--celeste-pastel);
+  border-radius: 16px;
+  padding: 20px 18px;
+  width: 100%;
+}
+
+.final-closing {
+  text-align: center;
+  margin-top: 14px;
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--azul-oscuro);
+}
+
+/* ==========================================================================
+   ACCESIBILIDAD: REDUCIR MOVIMIENTO
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  #snow-canvas, .sparkles-layer {
+    display: none !important;
+  }
+}
+"""
+
+advent_config_js = """// =========================================================================
+// PERSONALIZACIÓN DE ANDRÉS
+// =========================================================================
+// Instrucciones rápidas:
+// - Edita únicamente los textos entre comillas ("...").
+// - No borres las comas (,) al final de cada línea.
+// - Para cambiar una foto, reemplaza el archivo dentro de la carpeta /images
+//   (por ejemplo: images/dia01.jpg) o cambia el nombre aquí abajo.
+// - Si un día no lleva foto, video o lista, simplemente deja el campo vacío ""
+//   o bórralo, y la página lo ocultará automáticamente.
+// =========================================================================
+
+const ADVENT_CONFIG = {
+  // 1. Nombres protagonistas
+  recipientName: "Any",
+  senderName: "Andrés",
+
+  // 2. Configuración de fechas y zona horaria (Ecuador)
+  timeZone: "America/Quito",
+  year: 2026, // Cambia el año si lo deseas (ej. 2026)
+  month: 12,  // 12 = Diciembre
+
+  // MODO PRUEBA PARA ANDRÉS:
+  // Déjalo en null para que funcione con la fecha real de Ecuador automáticamente.
+  // Si quieres probar cómo se ve el calendario antes de diciembre, pon un número
+  // del 1 al 25 (ejemplo: testSimulatedDay: 10 simula que hoy es 10 de diciembre).
+  // ¡RECUERDA volver a ponerlo en null antes de enviárselo a Any!
+  testSimulatedDay: null,
+
+  // 3. Paleta de colores (puedes ajustar los códigos hexadecimales si quieres)
+  theme: {
+    celestePastel: "#B9DFF2",
+    celesteClaro: "#DDF1FA",
+    azulHielo: "#EAF7FC",
+    blancoNieve: "#FFFFFF",
+    azulGrisaceo: "#789CB2",
+    azulOscuro: "#405C70"
+  },
+
+  // 4. Música de fondo opcional (deja "" si no quieres botón de música global)
+  // Ejemplo: "audio/musica01.mp3"
+  backgroundMusic: "",
+
+  // 5. Pantalla Inicial (Sobre de Bienvenida)
+  welcome: {
+    eyebrow: "UN REGALO DE ANDRÉS",
+    toTitle: "Para Any",
+    subtitle: "Un poquito de magia para ti.",
+    dedication: "Preparado con mucho cariño, te amo.",
+    openButtonText: "ABRIR MI REGALO",
+    letterMessage:
+      "Hola, Mi Vida❤️\\n\\n" +
+      "Este diciembre quiero regalarte algo diferente.\\n" +
+      "Preparé 25 pequeños detalles para ti. Algunos son recuerdos, otros son palabras y otros son pequeñas sorpresas.\\n\\n" +
+      "Solo puedes descubrir uno cada día.\\n" +
+      "Espero que cada uno te saque una sonrisa.\\n\\n" +
+      "Con mucho cariño,\\n" +
+      "Andrés.",
+    startButtonText: "COMENZAR!"
+  },
+
+  // 6. Encabezado del Calendario Principal
+  calendarHeader: {
+    title: "Feliz Navidad, mi Amor",
+    subtitle: "25 días, 25 sorpresas para ti.",
+    caption: "Cada día tiene algo preparado especialmente para ti.",
+    footerNote: "25 días, 25 pequeños detalles para recordarte lo especial que eres."
+  },
+
+  // 7. Mensajes cuando Any intenta abrir un día futuro
+  lockedMessages: {
+    withDate: "¡Todavía no! Esta sorpresa se abre el {DATE}.",
+    alternative: "Un poquito de paciencia, Vida. Tu sorpresa todavía está esperando."
+  },
+
+  // =========================================================================
+  // 8. LOS 25 DÍAS DEL CALENDARIO
+  // =========================================================================
+  // Tipos de sorpresa disponibles (campo "type"):
+  // - "letter"        -> Carta o mensaje romántico con firma
+  // - "photo"         -> Fotografía estilo Polaroid con descripción
+  // - "photo_message" -> Fotografía Polaroid + mensaje debajo
+  // - "list"          -> Lista numerada (usa el campo items: ["...", "..."])
+  // - "invitation"    -> Tarjeta de invitación a una cita (usa invitationDetails)
+  // - "video"         -> Video corto (usa video: "videos/video01.mp4")
+  // - "music"         -> Canción en audio local (audio: "audio/musica01.mp3") o enlace (songUrl)
+  // - "final"         -> Carta larga especial de Navidad (ideal para el Día 25)
+  // =========================================================================
+  days: [
+    {
+      day: 1,
+      type: "letter",
+      title: "Día 01: El comienzo de diciembre",
+      message:
+        "Hoy empieza nuestro pequeño calendario de Adviento, Any.\\n\\n" +
+        "Quise crear este rincón solo para ti, para que cada día de diciembre tengas un recordatorio de cuánto te quiero y lo feliz que me hace compartir la vida contigo.",
+      signature: "Con amor, Andrés"
+    },
+    {
+      day: 2,
+      type: "photo",
+      title: "Un instante favorito",
+      image: "images/dia02.jpg",
+      caption: "Una de mis fotos favoritas contigo."
+    },
+    {
+      day: 3,
+      type: "letter",
+      title: "Pequeña carta para tu día",
+      message:
+        "A veces los días pasan rápido, pero cada momento a tu lado tiene una calma y una alegría que no cambio por nada. Gracias por ser tú.",
+      signature: "Siempre tuyo, Andrés"
+    },
+    {
+      day: 4,
+      type: "letter",
+      title: "Una razón por la que te quiero",
+      message:
+        "Porque siempre con tu risa tan hermosa puedes mejorar cualquiera de mis días, incluso los más cansados.",
+      signature: "Andrés ❤️"
+    },
+    {
+      day: 5,
+      type: "photo_message",
+      title: "Un recuerdo juntos",
+      image: "images/dia05.jpg",
+      caption: "Siempre juntos",
+      message:
+        "Cada vez que miro esta foto recuerdo lo bien que la pasamos ese día. Quiero seguir coleccionando mil momentos así contigo.",
+      signature: "Con cariño, Andrés"
+    },
+    {
+      day: 6,
+      type: "music",
+      title: "Una canción que me recuerda a ti",
+      message:
+        "Cada vez que escucho esta melodía pienso en ti y en tu sonrisa. Dale play cuando tengas un minutito tranquilo.",
+      audio: "audio/musica01.mp3",
+      songUrl: "",
+      songLabel: "Escuchar nuestra canción",
+      signature: "Andrés"
+    },
+    {
+      day: 7,
+      type: "photo_message",
+      title: "Un recuerdo inolvidable",
+      image: "images/dia07.jpg",
+      caption: "De esos días que se quedan en el corazón",
+      message:
+        "Hay días normales y hay días mágicos simplemente porque estuviste ahí conmigo.",
+      signature: "Tu novio, Andrés"
+    },
+    {
+      day: 8,
+      type: "list",
+      title: "5 cosas que me encantan de ti",
+      items: [
+        "Tu sonrisa cuando algo te hace genuinamente feliz.",
+        "La forma tan dulce y atenta en la que cuidas de quienes quieres.",
+        "Tu mirada y cómo iluminas cualquier lugar al que llegas.",
+        "Nuestras conversaciones interminables sobre cualquier tema.",
+        "La paz que siento cada vez que estoy contigo."
+      ],
+      signature: "Y la lista sigue creciendo... Andrés"
+    },
+    {
+      day: 9,
+      type: "photo",
+      title: "Mi vista favorita",
+      image: "images/dia09.jpg",
+      caption: "Tú siendo tú ❤️"
+    },
+    {
+      day: 10,
+      type: "letter",
+      title: "Una dedicatoria especial",
+      message:
+        "Si pudiera pedir un deseo este invierno, sería seguir viéndote cumplir cada uno de tus sueños, siempre tomada de mi mano.",
+      signature: "Con todo mi cariño, Andrés"
+    },
+    {
+      day: 11,
+      type: "invitation",
+      title: "Hoy tienes una cita conmigo",
+      message:
+        "Este cupón es válido por una salida especial juntos: tú eliges el antojo o el plan, y yo me encargo de consentirte.",
+      invitationDetails: "Lugar y hora: ¡Avísame cuando estés lista, mi Vida!",
+      signature: "Invita: Andrés"
+    },
+    {
+      day: 12,
+      type: "letter",
+      title: "Mitad de camino hacia Navidad",
+      message:
+        "Ya vamos por el día 12 y cada día encuentro un motivo nuevo para agradecer tenerte en mi vida, Any.",
+      signature: "Andrés ❤️"
+    },
+    {
+      day: 13,
+      type: "photo",
+      title: "Otro pedacito de nosotros",
+      image: "images/dia13.jpg",
+      caption: "Guardado en mis recuerdos favoritos"
+    },
+    {
+      day: 14,
+      type: "photo_message",
+      title: "Un recuerdo especial",
+      image: "images/dia14.jpg",
+      caption: "Momentos que valen oro",
+      message:
+        "No importa el lugar ni la hora; cuando estoy contigo todo se siente en su sitio.",
+      signature: "Andrés"
+    },
+    {
+      day: 15,
+      type: "list",
+      title: "5 pequeños detalles que amo de nosotros",
+      items: [
+        "Cómo nos entendemos con una sola mirada.",
+        "Nuestras bromas internas que nadie más entiende.",
+        "El apoyo mutuo en los días ocupados.",
+        "Cada abrazo que reinicia el día por completo.",
+        "La ilusión de todo lo bonito que nos espera."
+      ],
+      signature: "Andrés"
+    },
+    {
+      day: 16,
+      type: "video",
+      title: "Un video especial para ti",
+      message:
+        "Quise dejar este pequeño video guardado aquí para sacarte una sonrisa hoy.",
+      video: "videos/video01.mp4",
+      signature: "Con amor, Andrés"
+    },
+    {
+      day: 17,
+      type: "letter",
+      title: "Una pequeña promesa",
+      message:
+        "Te prometo estar siempre para escucharte, apoyarte, hacerte reír y recordarte lo valiosa y increíble que eres.",
+      signature: "Promesa de Andrés"
+    },
+    {
+      day: 18,
+      type: "photo",
+      title: "Postal de invierno",
+      image: "images/dia18.jpg",
+      caption: "Mi persona favorita en el mundo"
+    },
+    {
+      day: 19,
+      type: "letter",
+      title: "Para recordarte hoy",
+      message:
+        "Eres mi pensamiento favorito al despertar y mi mejor historia antes de dormir. Te amo muchísimo, Any.",
+      signature: "Andrés ❤️"
+    },
+    {
+      day: 20,
+      type: "invitation",
+      title: "Invitación a una tarde navideña",
+      message:
+        "Te invito a una tarde tranquila juntos, algo rico para tomar, buena música y tiempo solo para nosotros dos.",
+      invitationDetails: "Válido cualquier tarde de esta semana ✨",
+      signature: "Con cariño, Andrés"
+    },
+    {
+      day: 21,
+      type: "letter",
+      title: "Faltan solo 4 días",
+      message:
+        "Ya casi llega Navidad, y el mejor regalo de todo este año ya lo tengo desde el día en que llegaste a mi vida.",
+      signature: "Andrés"
+    },
+    {
+      day: 22,
+      type: "photo_message",
+      title: "Un recuerdo juntos",
+      image: "images/dia22.jpg",
+      caption: "Contigo todo es mejor",
+      message:
+        "Gracias por cada aventura, cada risa y cada momento compartido este año.",
+      signature: "Andrés ❤️"
+    },
+    {
+      day: 23,
+      type: "letter",
+      title: "La víspera de Nochebuena",
+      message:
+        "Mañana es Nochebuena y solo quiero que sepas lo orgulloso que estoy de ti y lo feliz que me hace caminar a tu lado.",
+      signature: "Tu Andrés"
+    },
+    {
+      day: 24,
+      type: "photo_message",
+      title: "Una Nochebuena junto a ti",
+      image: "images/dia24.jpg",
+      caption: "Feliz Nochebuena, mi Amor",
+      message:
+        "Que esta Nochebuena esté llena de paz, abrazos bonitos y mucha luz. Gracias por hacer de este año algo tan especial.",
+      signature: "Con todo mi amor, Andrés"
+    },
+    {
+      day: 25,
+      type: "final",
+      title: "Feliz Navidad, mi Vida.",
+      message:
+        "Llegamos al día 25, Any. Cada una de estas casillas fue hecha pensando en ti, en tu sonrisa y en lo mucho que significas para mí.\\n\\n" +
+        "Gracias por iluminar mis días con tu cariño, tu ternura y tu forma tan única de ver la vida. Eres mi lugar favorito, mi calma y mi mayor alegría.\\n\\n" +
+        "Que esta Navidad sea solo una más de muchísimas que celebremos juntos, construyendo recuerdos tan bonitos como los que guardamos aquí.",
+      image: "images/dia25.jpg",
+      caption: "Nuestra Navidad juntos ❤️",
+      closingLine1: "Gracias por ser parte de mis días.",
+      closingLine2: "Con todo mi cariño, Andrés ❤️"
+    }
+  ]
+};
+"""
+
+script_js = """/* ==========================================================================
+   LÓGICA DEL CALENDARIO DE ADVIENTO DIGITAL — ANDRÉS & ANY
+   - Cálculo estricto de fecha en zona horaria America/Quito
+   - Bloqueo real de días futuros (no permite abrir por DOM ni URL)
+   - Persistencia de progreso en localStorage
+   - Animación ligera de nieve en Canvas
+   ========================================================================== */
+
+(function () {
+  "use strict";
+
+  const STORAGE_KEY = "advent_opened_days_andres_any_v1";
+  const INTRO_SEEN_KEY = "advent_intro_seen_andres_any_v1";
+  const TOTAL_DAYS = 25;
+
+  // Referencias DOM
+  const welcomeScreen = document.getElementById("welcome-screen");
+  const calendarScreen = document.getElementById("calendar-screen");
+  const envelopeStage = document.getElementById("envelope-stage");
+  const envelope = document.getElementById("envelope");
+  const letterCard = document.getElementById("letter-card");
+  const openGiftBtn = document.getElementById("open-gift-btn");
+  const startCalendarBtn = document.getElementById("start-calendar-btn");
+  const replayIntroBtn = document.getElementById("replay-intro-btn");
+  const musicToggleBtn = document.getElementById("music-toggle-btn");
+  const musicLabel = document.getElementById("music-label");
+  const bgAudio = document.getElementById("bg-audio");
+
+  const doorsGrid = document.getElementById("doors-grid");
+  const progressLabel = document.getElementById("progress-label");
+  const progressPercent = document.getElementById("progress-percent");
+  const progressFill = document.getElementById("progress-fill");
+  const progressBarTrack = document.getElementById("progress-bar-track");
+
+  const toastBanner = document.getElementById("toast-banner");
+  const surpriseModal = document.getElementById("surprise-modal");
+  const modalDayBadge = document.getElementById("modal-day-badge");
+  const modalContentArea = document.getElementById("modal-content-area");
+  const closeModalBtn = document.getElementById("close-modal-btn");
+  const backToCalBtn = document.getElementById("back-to-cal-btn");
+
+  let toastTimer = null;
+  let lastFocusedDoor = null;
+
+  /* ------------------------------------------------------------------------
+     1. APLICAR CONFIGURACIÓN VISUAL Y TEXTOS DESDE ADVENT_CONFIG
+     ------------------------------------------------------------------------ */
+  function applyConfig() {
+    if (typeof ADVENT_CONFIG === "undefined") {
+      console.error("No se encontró ADVENT_CONFIG.");
+      return;
+    }
+
+    const root = document.documentElement;
+    const t = ADVENT_CONFIG.theme || {};
+    if (t.celestePastel) root.style.setProperty("--celeste-pastel", t.celestePastel);
+    if (t.celesteClaro) root.style.setProperty("--celeste-claro", t.celesteClaro);
+    if (t.azulHielo) root.style.setProperty("--azul-hielo", t.azulHielo);
+    if (t.blancoNieve) root.style.setProperty("--blanco-nieve", t.blancoNieve);
+    if (t.azulGrisaceo) root.style.setProperty("--azul-grisaceo", t.azulGrisaceo);
+    if (t.azulOscuro) root.style.setProperty("--azul-oscuro", t.azulOscuro);
+
+    // Bienvenida
+    const w = ADVENT_CONFIG.welcome;
+    document.getElementById("welcome-eyebrow").textContent = w.eyebrow;
+    document.getElementById("welcome-to").textContent = w.toTitle;
+    document.getElementById("welcome-subtitle").textContent = w.subtitle;
+    document.getElementById("welcome-dedication").textContent = w.dedication;
+    openGiftBtn.textContent = w.openButtonText;
+    document.getElementById("letter-message").textContent = w.letterMessage;
+    startCalendarBtn.textContent = w.startButtonText;
+
+    // Encabezado del calendario
+    const ch = ADVENT_CONFIG.calendarHeader;
+    document.getElementById("cal-title").textContent = ch.title;
+    document.getElementById("cal-subtitle").textContent = ch.subtitle;
+    document.getElementById("cal-caption").textContent = ch.caption;
+    document.getElementById("footer-note").textContent = ch.footerNote;
+
+    // Música de fondo opcional
+    if (ADVENT_CONFIG.backgroundMusic && ADVENT_CONFIG.backgroundMusic.trim() !== "") {
+      bgAudio.src = ADVENT_CONFIG.backgroundMusic;
+      musicToggleBtn.classList.remove("hidden");
+    }
+  }
+
+  /* ------------------------------------------------------------------------
+     2. CÁLCULO DE FECHA EN ECUADOR (America/Quito)
+     ------------------------------------------------------------------------ */
+  function getEcuadorDateParts() {
+    const tz = ADVENT_CONFIG.timeZone || "America/Quito";
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    });
+    const parts = formatter.formatToParts(now);
+    const map = {};
+    parts.forEach((p) => {
+      map[p.type] = parseInt(p.value, 10);
+    });
+    return {
+      year: map.year,
+      month: map.month,
+      day: map.day
+    };
+  }
+
+  /**
+   * Devuelve el máximo día desbloqueado (0 si aún no es diciembre, 1..25 en diciembre).
+   */
+  function getMaxUnlockedDay() {
+    if (
+      typeof ADVENT_CONFIG.testSimulatedDay === "number" &&
+      ADVENT_CONFIG.testSimulatedDay >= 1 &&
+      ADVENT_CONFIG.testSimulatedDay <= 25
+    ) {
+      return Math.floor(ADVENT_CONFIG.testSimulatedDay);
+    }
+
+    const eq = getEcuadorDateParts();
+    const targetYear = ADVENT_CONFIG.year || eq.year;
+    const targetMonth = ADVENT_CONFIG.month || 12;
+
+    if (eq.year < targetYear) return 0;
+    if (eq.year > targetYear) return TOTAL_DAYS;
+
+    // Mismo año
+    if (eq.month < targetMonth) return 0;
+    if (eq.month > targetMonth) return TOTAL_DAYS;
+
+    // Estamos en diciembre del año objetivo
+    return Math.min(Math.max(eq.day, 0), TOTAL_DAYS);
+  }
+
+  function isDayUnlocked(dayNumber) {
+    const num = Number(dayNumber);
+    if (!Number.isInteger(num) || num < 1 || num > TOTAL_DAYS) return false;
+    return num <= getMaxUnlockedDay();
+  }
+
+  /* ------------------------------------------------------------------------
+     3. ALMACENAMIENTO LOCAL DEL PROGRESO
+     ------------------------------------------------------------------------ */
+  function getOpenedDays() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function markDayAsOpened(dayNumber) {
+    const opened = getOpenedDays();
+    if (!opened.includes(dayNumber)) {
+      opened.push(dayNumber);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(opened));
+      } catch (e) {
+        // Ignorar si el almacenamiento privado bloquea escritura
+      }
+      updateProgressUI();
+      renderDoors();
+      if (opened.length === TOTAL_DAYS) {
+        triggerCompletionCelebration();
+      }
+    }
+  }
+
+  function updateProgressUI() {
+    const opened = getOpenedDays().filter((d) => isDayUnlocked(d));
+    const count = opened.length;
+    const pct = Math.round((count / TOTAL_DAYS) * 100);
+    progressLabel.textContent = `Has descubierto ${count} de ${TOTAL_DAYS} sorpresas.`;
+    progressPercent.textContent = `${pct}%`;
+    progressFill.style.width = `${pct}%`;
+    progressBarTrack.setAttribute("aria-valuenow", String(count));
+  }
+
+  /* ------------------------------------------------------------------------
+     4. INTERACCIÓN DEL SOBRE DE BIENVENIDA
+     ------------------------------------------------------------------------ */
+  function openEnvelopeAnimation() {
+    if (envelope.classList.contains("is-open")) return;
+    envelope.classList.add("is-open");
+    envelopeStage.classList.add("opened");
+    letterCard.setAttribute("aria-hidden", "false");
+    openGiftBtn.classList.add("hidden");
+    document.getElementById("welcome-dedication").style.opacity = "0";
+  }
+
+  function transitionToCalendar() {
+    try {
+      localStorage.setItem(INTRO_SEEN_KEY, "1");
+    } catch (e) {}
+
+    welcomeScreen.classList.add("fade-out");
+    setTimeout(() => {
+      welcomeScreen.classList.add("hidden");
+      welcomeScreen.classList.remove("fade-out");
+      calendarScreen.classList.remove("hidden");
+      replayIntroBtn.classList.remove("hidden");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 550);
+  }
+
+  function replayWelcomeScreen() {
+    envelope.classList.remove("is-open");
+    envelopeStage.classList.remove("opened");
+    letterCard.setAttribute("aria-hidden", "true");
+    openGiftBtn.classList.remove("hidden");
+    document.getElementById("welcome-dedication").style.opacity = "0.88";
+
+    calendarScreen.classList.add("hidden");
+    replayIntroBtn.classList.add("hidden");
+    welcomeScreen.classList.remove("hidden");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  openGiftBtn.addEventListener("click", openEnvelopeAnimation);
+  envelope.addEventListener("click", (e) => {
+    if (e.target.closest("#start-calendar-btn")) return;
+    openEnvelopeAnimation();
+  });
+  envelope.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openEnvelopeAnimation();
+    }
+  });
+  startCalendarBtn.addEventListener("click", transitionToCalendar);
+  replayIntroBtn.addEventListener("click", replayWelcomeScreen);
+
+  /* ------------------------------------------------------------------------
+     5. CONSTRUCCIÓN DE LAS 25 CASILLAS DEL CALENDARIO
+     ------------------------------------------------------------------------ */
+  const DECOR_MOTIFS = ["❄", "✦", "♡", "✧", "❅", "⋆"];
+
+  function formatDayNumber(num) {
+    return String(num).padStart(2, "0");
+  }
+
+  function renderDoors() {
+    doorsGrid.innerHTML = "";
+    const maxUnlocked = getMaxUnlockedDay();
+    const openedDays = getOpenedDays();
+
+    for (let day = 1; day <= TOTAL_DAYS; day++) {
+      const unlocked = day <= maxUnlocked;
+      const opened = unlocked && openedDays.includes(day);
+      const isToday = day === maxUnlocked;
+      const isFinal = day === 25;
+
+      const doorBtn = document.createElement("button");
+      doorBtn.type = "button";
+      doorBtn.setAttribute("role", "listitem");
+      doorBtn.dataset.day = String(day);
+
+      const variantClass = `variant-${day % 4}`;
+      doorBtn.className = `door-card ${variantClass} ${unlocked ? "unlocked" : "locked"} ${
+        opened ? "opened" : ""
+      } ${isToday ? "is-today" : ""} ${isFinal ? "door-final" : ""}`;
+
+      const motif = DECOR_MOTIFS[(day - 1) % DECOR_MOTIFS.length];
+
+      if (isFinal) {
+        doorBtn.setAttribute(
+          "aria-label",
+          unlocked
+            ? "Día 25 de diciembre, sorpresa final de Navidad"
+            : "Día 25 de diciembre, bloqueado hasta el 25 de diciembre"
+        );
+        doorBtn.innerHTML = `
+          ${
+            !unlocked
+              ? `<span class="door-lock-badge" aria-hidden="true">🔒 ❄</span>`
+              : opened
+              ? `<span class="door-opened-badge" aria-hidden="true">♥</span>`
+              : ""
+          }
+          <div class="door-final-inner">
+            <span class="door-number">25</span>
+            <span class="door-final-tag">🎁 Feliz Navidad, mi Vida</span>
+          </div>
+        `;
+      } else {
+        doorBtn.setAttribute(
+          "aria-label",
+          unlocked
+            ? `Día ${day} de diciembre${opened ? ", ya abierto" : ", disponible"}`
+            : `Día ${day} de diciembre, bloqueado`
+        );
+        doorBtn.innerHTML = `
+          ${
+            !unlocked
+              ? `<span class="door-lock-badge" aria-hidden="true">🔒</span>`
+              : opened
+              ? `<span class="door-opened-badge" aria-hidden="true">✓</span>`
+              : ""
+          }
+          <span class="door-number">${formatDayNumber(day)}</span>
+          <span class="door-motif" aria-hidden="true">${unlocked ? motif : "❄"}</span>
+        `;
+      }
+
+      doorBtn.addEventListener("click", () => handleDoorClick(day, doorBtn));
+      doorsGrid.appendChild(doorBtn);
+    }
+  }
+
+  function showToast(text) {
+    toastBanner.textContent = text;
+    toastBanner.classList.add("visible");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toastBanner.classList.remove("visible");
+    }, 3400);
+  }
+
+  function handleDoorClick(day, doorEl) {
+    // Validación estricta en el momento del clic
+    if (!isDayUnlocked(day)) {
+      doorEl.classList.remove("shake");
+      void doorEl.offsetWidth; // Reiniciar animación
+      doorEl.classList.add("shake");
+
+      const dateStr = `${day} de diciembre`;
+      const useAlt = Math.random() > 0.45;
+      const msg = useAlt
+        ? ADVENT_CONFIG.lockedMessages.alternative
+        : ADVENT_CONFIG.lockedMessages.withDate.replace("{DATE}", dateStr);
+      showToast(msg);
+      return;
+    }
+
+    lastFocusedDoor = doorEl;
+    doorEl.classList.add("opening");
+
+    setTimeout(() => {
+      doorEl.classList.remove("opening");
+      openSurpriseModal(day);
+      markDayAsOpened(day);
+    }, 340);
+  }
+
+  /* ------------------------------------------------------------------------
+     6. RENDERIZADO DE CONTENIDO SEGÚN EL TIPO DE SORPRESA
+     ------------------------------------------------------------------------ */
+  function escapeHTML(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function buildPolaroidHTML(imageSrc, caption) {
+    if (!imageSrc || imageSrc.trim() === "") return "";
+    return `
+      <figure class="polaroid-frame">
+        <img src="${escapeHTML(imageSrc)}" alt="${escapeHTML(caption || "Recuerdo especial")}" loading="lazy" />
+        ${caption ? `<figcaption class="polaroid-caption">${escapeHTML(caption)}</figcaption>` : ""}
+      </figure>
+    `;
+  }
+
+  function openSurpriseModal(day) {
+    // Seguridad adicional: nunca renderizar contenido de días futuros
+    if (!isDayUnlocked(day)) return;
+
+    const dayData = (ADVENT_CONFIG.days || []).find((item) => Number(item.day) === Number(day));
+    if (!dayData) return;
+
+    modalDayBadge.textContent = `DÍA ${formatDayNumber(day)} DE DICIEMBRE`;
+    let html = "";
+
+    if (dayData.title) {
+      html += `<h2 class="surprise-title" id="modal-day-title">${escapeHTML(dayData.title)}</h2>`;
+    }
+
+    switch (dayData.type) {
+      case "photo":
+        html += buildPolaroidHTML(dayData.image, dayData.caption);
+        if (dayData.message) {
+          html += `<p class="surprise-message">${escapeHTML(dayData.message)}</p>`;
+        }
+        break;
+
+      case "photo_message":
+        html += buildPolaroidHTML(dayData.image, dayData.caption);
+        if (dayData.message) {
+          html += `<p class="surprise-message">${escapeHTML(dayData.message)}</p>`;
+        }
+        break;
+
+      case "list":
+        if (dayData.message) {
+          html += `<p class="surprise-message">${escapeHTML(dayData.message)}</p>`;
+        }
+        if (Array.isArray(dayData.items) && dayData.items.length > 0) {
+          html += `<ol class="special-list">`;
+          dayData.items.forEach((item, idx) => {
+            html += `<li><span class="list-num">${idx + 1}</span><span>${escapeHTML(item)}</span></li>`;
+          });
+          html += `</ol>`;
+        }
+        break;
+
+      case "invitation":
+        html += `<div class="invitation-ticket">
+          <span class="invitation-tag">✦ INVITACIÓN ESPECIAL ✦</span>
+          ${dayData.message ? `<p class="surprise-message">${escapeHTML(dayData.message)}</p>` : ""}
+          ${
+            dayData.invitationDetails
+              ? `<p class="invitation-details">${escapeHTML(dayData.invitationDetails)}</p>`
+              : ""
+          }
+        </div>`;
+        if (dayData.image) {
+          html += buildPolaroidHTML(dayData.image, dayData.caption);
+        }
+        break;
+
+      case "video":
+        if (dayData.message) {
+          html += `<p class="surprise-message">${escapeHTML(dayData.message)}</p>`;
+        }
+        if (dayData.video) {
+          html += `
+            <div class="media-box">
+              <video controls playsinline preload="metadata">
+                <source src="${escapeHTML(dayData.video)}" type="video/mp4" />
+                Tu navegador no soporta la reproducción de video.
+              </video>
+            </div>
+          `;
+        }
+        break;
+
+      case "music":
+        if (dayData.message) {
+          html += `<p class="surprise-message">${escapeHTML(dayData.message)}</p>`;
+        }
+        if (dayData.audio || dayData.songUrl) {
+          html += `<div class="media-box">`;
+          if (dayData.audio) {
+            html += `
+              <audio controls preload="none">
+                <source src="${escapeHTML(dayData.audio)}" type="audio/mpeg" />
+                Tu navegador no soporta audio.
+              </audio>
+            `;
+          }
+          if (dayData.songUrl) {
+            html += `
+              <a class="external-song-link" href="${escapeHTML(
+                dayData.songUrl
+              )}" target="_blank" rel="noopener noreferrer">
+                ♪ ${escapeHTML(dayData.songLabel || "Escuchar canción")}
+              </a>
+            `;
+          }
+          html += `</div>`;
+        }
+        break;
+
+      case "final":
+        if (dayData.message) {
+          html += `<div class="final-letter-box"><p class="surprise-message">${escapeHTML(
+            dayData.message
+          )}</p></div>`;
+        }
+        if (dayData.image) {
+          html += buildPolaroidHTML(dayData.image, dayData.caption);
+        }
+        if (dayData.closingLine1 || dayData.closingLine2) {
+          html += `<div class="final-closing">`;
+          if (dayData.closingLine1) html += `<p>${escapeHTML(dayData.closingLine1)}</p>`;
+          if (dayData.closingLine2)
+            html += `<p class="surprise-signature">${escapeHTML(dayData.closingLine2)}</p>`;
+          html += `</div>`;
+        }
+        break;
+
+      case "letter":
+      default:
+        if (dayData.message) {
+          html += `<p class="surprise-message">${escapeHTML(dayData.message)}</p>`;
+        }
+        if (dayData.image) {
+          html += buildPolaroidHTML(dayData.image, dayData.caption);
+        }
+        break;
+    }
+
+    if (dayData.signature && dayData.type !== "final") {
+      html += `<p class="surprise-signature">${escapeHTML(dayData.signature)}</p>`;
+    }
+
+    modalContentArea.innerHTML = html;
+    modalContentArea.scrollTop = 0;
+
+    spawnModalSparkles();
+    surpriseModal.classList.remove("hidden");
+    requestAnimationFrame(() => {
+      surpriseModal.classList.add("open");
+    });
+    closeModalBtn.focus();
+  }
+
+  function closeSurpriseModal() {
+    // Pausar cualquier audio o video activo dentro del modal al cerrarlo
+    const mediaEls = modalContentArea.querySelectorAll("video, audio");
+    mediaEls.forEach((m) => {
+      try {
+        m.pause();
+      } catch (e) {}
+    });
+
+    surpriseModal.classList.remove("open");
+    setTimeout(() => {
+      surpriseModal.classList.add("hidden");
+      modalContentArea.innerHTML = "";
+      if (lastFocusedDoor) lastFocusedDoor.focus();
+    }, 300);
+  }
+
+  closeModalBtn.addEventListener("click", closeSurpriseModal);
+  backToCalBtn.addEventListener("click", closeSurpriseModal);
+  surpriseModal.addEventListener("click", (e) => {
+    if (e.target === surpriseModal) closeSurpriseModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !surpriseModal.classList.contains("hidden")) {
+      closeSurpriseModal();
+    }
+  });
+
+  function spawnModalSparkles() {
+    const container = document.getElementById("modal-sparkles");
+    container.innerHTML = "";
+    for (let i = 0; i < 16; i++) {
+      const dot = document.createElement("span");
+      dot.className = "sparkle-dot";
+      dot.style.left = `${Math.random() * 100}%`;
+      dot.style.top = `${Math.random() * 100}%`;
+      dot.style.setProperty("--dur", `${2.2 + Math.random() * 2.5}s`);
+      dot.style.animationDelay = `${Math.random() * 1.2}s`;
+      container.appendChild(dot);
+    }
+  }
+
+  function triggerCompletionCelebration() {
+    showToast("✨ ¡Has descubierto las 25 sorpresas de Navidad, mi Amor! ❤️");
+  }
+
+  /* ------------------------------------------------------------------------
+     7. MÚSICA DE FONDO MANUAL
+     ------------------------------------------------------------------------ */
+  musicToggleBtn.addEventListener("click", () => {
+    if (bgAudio.paused) {
+      bgAudio
+        .play()
+        .then(() => {
+          musicLabel.textContent = "Música: On";
+        })
+        .catch(() => {
+          showToast("Toca de nuevo para reproducir la música.");
+        });
+    } else {
+      bgAudio.pause();
+      musicLabel.textContent = "Música: Off";
+    }
+  });
+
+  /* ------------------------------------------------------------------------
+     8. ANIMACIÓN DE NIEVE INVERNAL Y DESTELLOS (OPTIMIZADA PARA MÓVILES)
+     ------------------------------------------------------------------------ */
+  function initSnowAndSparkles() {
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+
+    // Destellos suaves de fondo
+    const sparkleLayer = document.getElementById("sparkles-layer");
+    const sparkleCount = window.innerWidth < 600 ? 14 : 24;
+    for (let i = 0; i < sparkleCount; i++) {
+      const s = document.createElement("span");
+      s.className = "sparkle-dot";
+      s.style.left = `${Math.random() * 100}%`;
+      s.style.top = `${Math.random() * 100}%`;
+      s.style.setProperty("--dur", `${3.5 + Math.random() * 4}s`);
+      s.style.animationDelay = `${Math.random() * 4}s`;
+      sparkleLayer.appendChild(s);
+    }
+
+    // Canvas de nieve
+    const canvas = document.getElementById("snow-canvas");
+    const ctx = canvas.getContext("2d");
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const isMobile = width < 640;
+    const flakeCount = isMobile ? 48 : 85;
+    const flakes = [];
+
+    function createFlake(startTop) {
+      return {
+        x: Math.random() * width,
+        y: startTop ? -10 : Math.random() * height,
+        r: 1.4 + Math.random() * (isMobile ? 2.6 : 3.4),
+        speedY: 0.45 + Math.random() * 1.15,
+        driftPhase: Math.random() * Math.PI * 2,
+        driftSpeed: 0.008 + Math.random() * 0.015,
+        driftAmp: 0.35 + Math.random() * 0.65,
+        opacity: 0.35 + Math.random() * 0.55
+      };
+    }
+
+    for (let i = 0; i < flakeCount; i++) {
+      flakes.push(createFlake(false));
+    }
+
+    let resizeTimeout;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+      }, 180);
+    });
+
+    function animateSnow() {
+      ctx.clearRect(0, 0, width, height);
+
+      for (let i = 0; i < flakes.length; i++) {
+        const f = flakes[i];
+        f.y += f.speedY;
+        f.driftPhase += f.driftSpeed;
+        f.x += Math.sin(f.driftPhase) * f.driftAmp;
+
+        if (f.y > height + 8) {
+          flakes[i] = createFlake(true);
+        }
+        if (f.x > width + 8) f.x = -8;
+        if (f.x < -8) f.x = width + 8;
+
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${f.opacity})`;
+        ctx.fill();
+      }
+
+      requestAnimationFrame(animateSnow);
+    }
+
+    requestAnimationFrame(animateSnow);
+  }
+
+  /* ------------------------------------------------------------------------
+     9. INICIALIZACIÓN Y VERIFICACIÓN PERIÓDICA DE MEDIANOCHE EN ECUADOR
+     ------------------------------------------------------------------------ */
+  function init() {
+    applyConfig();
+    renderDoors();
+    updateProgressUI();
+    initSnowAndSparkles();
+
+    // Limpiar cualquier hash en la URL para evitar intentos de navegación directa a días futuros
+    if (window.location.hash) {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+
+    // Revisar cada 60 segundos por si cambia el día en Ecuador mientras la página está abierta
+    let lastKnownMax = getMaxUnlockedDay();
+    setInterval(() => {
+      const currentMax = getMaxUnlockedDay();
+      if (currentMax !== lastKnownMax) {
+        lastKnownMax = currentMax;
+        renderDoors();
+        updateProgressUI();
+      }
+    }, 60000);
+  }
+
+  init();
+})();
+"""
+
+readme_md = """# Calendario de Adviento Digital — Andrés & Any
+
+Proyecto web estático, ligero y romántico diseñado como regalo navideño de **Andrés para Any**.
+
+## Estructura de carpetas
+
+```text
+calendario-adviento-andres-any/
+├── index.html          # Estructura principal de la página
+├── style.css           # Diseño invernal, paleta celeste y responsive Mobile First
+├── script.js           # Nieve, sobre animado, bloqueo por fecha de Ecuador y progreso
+├── advent-config.js    # ARCHIVO ÚNICO PARA PERSONALIZAR TEXTOS, FOTOS Y DÍAS
+├── README.md           # Esta guía de uso
+├── images/             # Fotografías (dia01.jpg hasta dia25.jpg)
+├── videos/             # Videos cortos (ej. video01.mp4)
+└── audio/              # Canciones o audios (ej. musica01.mp3)
